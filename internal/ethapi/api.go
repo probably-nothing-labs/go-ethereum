@@ -1261,6 +1261,7 @@ type RPCTransaction struct {
 	V                *hexutil.Big      `json:"v"`
 	R                *hexutil.Big      `json:"r"`
 	S                *hexutil.Big      `json:"s"`
+	TSNano           int64             `json:"timestampNano"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1282,6 +1283,7 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		V:        (*hexutil.Big)(v),
 		R:        (*hexutil.Big)(r),
 		S:        (*hexutil.Big)(s),
+		TSNano:   tx.GetUnixNano(),
 	}
 	if blockHash != (common.Hash{}) {
 		result.BlockHash = &blockHash
