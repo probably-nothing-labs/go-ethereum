@@ -52,11 +52,6 @@ const (
 )
 
 var (
-	// Git SHA1 commit hash of the release (set via linker flags)
-	gitCommit = ""
-	gitDate   = ""
-	// The app that holds all commands and flags.
-	app = flags.NewApp(gitCommit, gitDate, "the go-ethereum command line interface")
 	// flags that configure the node
 	nodeFlags = flags.Merge([]cli.Flag{
 		utils.IdentityFlag,
@@ -126,13 +121,13 @@ var (
 		utils.MiningEnabledFlag,
 		utils.MinerThreadsFlag,
 		utils.MinerNotifyFlag,
-		utils.LegacyMinerGasTargetFlag,
 		utils.MinerGasLimitFlag,
 		utils.MinerGasPriceFlag,
 		utils.MinerEtherbaseFlag,
 		utils.MinerExtraDataFlag,
 		utils.MinerRecommitIntervalFlag,
 		utils.MinerNoVerifyFlag,
+		utils.MinerNewPayloadTimeout,
 		utils.NATFlag,
 		utils.NoDiscoverFlag,
 		utils.DiscoveryV5Flag,
@@ -205,6 +200,8 @@ var (
 	}
 )
 
+var app = flags.NewApp("the go-ethereum command line interface")
+
 func init() {
 	// Initialize the CLI app and start Geth
 	app.Action = geth
@@ -241,6 +238,8 @@ func init() {
 		utils.ShowDeprecated,
 		// See snapshot.go
 		snapshotCommand,
+		// See verkle.go
+		verkleCommand,
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
 

@@ -359,7 +359,7 @@ func (h *serverHandler) AddTxsSync() bool {
 
 // getAccount retrieves an account from the state based on root.
 func getAccount(triedb *trie.Database, root, hash common.Hash) (types.StateAccount, error) {
-	trie, err := trie.New(common.Hash{}, root, triedb)
+	trie, err := trie.New(trie.StateTrieID(root), triedb)
 	if err != nil {
 		return types.StateAccount{}, err
 	}
@@ -383,15 +383,15 @@ func (h *serverHandler) GetHelperTrie(typ uint, index uint64) *trie.Trie {
 	switch typ {
 	case htCanonical:
 		sectionHead := rawdb.ReadCanonicalHash(h.chainDb, (index+1)*h.server.iConfig.ChtSize-1)
-		root, prefix = light.GetChtRoot(h.chainDb, index, sectionHead), light.ChtTablePrefix
+		root, prefix = light.GetChtRoot(h.chainDb, index, sectionHead), string(rawdb.ChtTablePrefix)
 	case htBloomBits:
 		sectionHead := rawdb.ReadCanonicalHash(h.chainDb, (index+1)*h.server.iConfig.BloomTrieSize-1)
-		root, prefix = light.GetBloomTrieRoot(h.chainDb, index, sectionHead), light.BloomTrieTablePrefix
+		root, prefix = light.GetBloomTrieRoot(h.chainDb, index, sectionHead), string(rawdb.BloomTrieTablePrefix)
 	}
 	if root == (common.Hash{}) {
 		return nil
 	}
-	trie, _ := trie.New(common.Hash{}, root, trie.NewDatabase(rawdb.NewTable(h.chainDb, prefix)))
+	trie, _ := trie.New(trie.TrieID(root), trie.NewDatabase(rawdb.NewTable(h.chainDb, prefix)))
 	return trie
 }
 

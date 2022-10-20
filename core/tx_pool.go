@@ -65,7 +65,7 @@ var (
 	// configured for the transaction pool.
 	ErrUnderpriced = errors.New("transaction underpriced")
 
-	// ErrTxPoolOverflow is returned if the transaction pool is full and can't accpet
+	// ErrTxPoolOverflow is returned if the transaction pool is full and can't accept
 	// another remote transaction.
 	ErrTxPoolOverflow = errors.New("txpool is full")
 
@@ -498,11 +498,11 @@ func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	pending := make(map[common.Address]types.Transactions)
+	pending := make(map[common.Address]types.Transactions, len(pool.pending))
 	for addr, list := range pool.pending {
 		pending[addr] = list.Flatten()
 	}
-	queued := make(map[common.Address]types.Transactions)
+	queued := make(map[common.Address]types.Transactions, len(pool.queue))
 	for addr, list := range pool.queue {
 		queued[addr] = list.Flatten()
 	}
@@ -850,7 +850,7 @@ func (pool *TxPool) AddLocals(txs []*types.Transaction) []error {
 }
 
 // AddLocal enqueues a single local transaction into the pool if it is valid. This is
-// a convenience wrapper aroundd AddLocals.
+// a convenience wrapper around AddLocals.
 func (pool *TxPool) AddLocal(tx *types.Transaction) error {
 	errs := pool.AddLocals([]*types.Transaction{tx})
 	return errs[0]
@@ -865,7 +865,7 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
 	return pool.addTxs(txs, false, false)
 }
 
-// This is like AddRemotes, but waits for pool reorganization. Tests use this method.
+// AddRemotesSync is like AddRemotes, but waits for pool reorganization. Tests use this method.
 func (pool *TxPool) AddRemotesSync(txs []*types.Transaction) []error {
 	return pool.addTxs(txs, false, true)
 }
@@ -1588,7 +1588,7 @@ type accountSet struct {
 // derivations.
 func newAccountSet(signer types.Signer, addrs ...common.Address) *accountSet {
 	as := &accountSet{
-		accounts: make(map[common.Address]struct{}),
+		accounts: make(map[common.Address]struct{}, len(addrs)),
 		signer:   signer,
 	}
 	for _, addr := range addrs {
