@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/forkid"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/les/flowcontrol"
@@ -62,7 +63,7 @@ type serverHandler struct {
 	forkFilter forkid.Filter
 	blockchain *core.BlockChain
 	chainDb    ethdb.Database
-	txpool     *core.TxPool
+	txpool     *txpool.TxPool
 	server     *LesServer
 
 	closeCh chan struct{}  // Channel used to exit all background routines of handler.
@@ -73,7 +74,7 @@ type serverHandler struct {
 	addTxsSync bool
 }
 
-func newServerHandler(server *LesServer, blockchain *core.BlockChain, chainDb ethdb.Database, txpool *core.TxPool, synced func() bool) *serverHandler {
+func newServerHandler(server *LesServer, blockchain *core.BlockChain, chainDb ethdb.Database, txpool *txpool.TxPool, synced func() bool) *serverHandler {
 	handler := &serverHandler{
 		forkFilter: forkid.NewFilter(blockchain),
 		server:     server,
@@ -116,7 +117,7 @@ func (h *serverHandler) handle(p *clientPeer) error {
 		hash   = head.Hash()
 		number = head.Number.Uint64()
 		td     = h.blockchain.GetTd(hash, number)
-		forkID = forkid.NewID(h.blockchain.Config(), h.blockchain.Genesis().Hash(), h.blockchain.CurrentBlock().NumberU64())
+		forkID = forkid.NewID(h.blockchain.Config(), h.blockchain.Genesis().Hash(), number, head.Time)
 	)
 	if err := p.Handshake(td, hash, number, h.blockchain.Genesis().Hash(), forkID, h.forkFilter, h.server); err != nil {
 		p.Log().Debug("Light Ethereum handshake failed", "err", err)
@@ -343,7 +344,7 @@ func (h *serverHandler) BlockChain() *core.BlockChain {
 }
 
 // TxPool implements serverBackend
-func (h *serverHandler) TxPool() *core.TxPool {
+func (h *serverHandler) TxPool() *txpool.TxPool {
 	return h.txpool
 }
 

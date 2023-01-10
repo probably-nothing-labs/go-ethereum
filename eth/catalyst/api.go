@@ -18,8 +18,6 @@
 package catalyst
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -34,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -279,23 +278,26 @@ func (api *ConsensusAPI) ForkchoiceUpdatedV1(update beacon.ForkchoiceStateV1, pa
 	}
 	// If payload generation was requested, create a new block to be potentially
 	// sealed by the beacon client. The payload will be requested later, and we
-	// might replace it arbitrarily many times in between.
+	// will replace it arbitrarily many times in between.
 	if payloadAttributes != nil {
-		// Create an empty block first which can be used as a fallback
-		empty, err := api.eth.Miner().GetSealingBlockSync(update.HeadBlockHash, payloadAttributes.Timestamp, payloadAttributes.SuggestedFeeRecipient, payloadAttributes.Random, true)
+		args := &miner.BuildPayloadArgs{
+			Parent:       update.HeadBlockHash,
+			Timestamp:    payloadAttributes.Timestamp,
+			FeeRecipient: payloadAttributes.SuggestedFeeRecipient,
+			Random:       payloadAttributes.Random,
+		}
+		id := args.Id()
+		// If we already are busy generating this work, then we do not need
+		// to start a second process.
+		if api.localBlocks.has(id) {
+			return valid(&id), nil
+		}
+		payload, err := api.eth.Miner().BuildPayload(args)
 		if err != nil {
-			log.Error("Failed to create empty sealing payload", "err", err)
+			log.Error("Failed to build payload", "err", err)
 			return valid(nil), beacon.InvalidPayloadAttributes.With(err)
 		}
-		// Send a request to generate a full block in the background.
-		// The result can be obtained via the returned channel.
-		resCh, err := api.eth.Miner().GetSealingBlockAsync(update.HeadBlockHash, payloadAttributes.Timestamp, payloadAttributes.SuggestedFeeRecipient, payloadAttributes.Random, false)
-		if err != nil {
-			log.Error("Failed to create async sealing payload", "err", err)
-			return valid(nil), beacon.InvalidPayloadAttributes.With(err)
-		}
-		id := computePayloadId(update.HeadBlockHash, payloadAttributes)
-		api.localBlocks.put(id, &payload{empty: empty, result: resCh})
+		api.localBlocks.put(id, payload)
 		return valid(&id), nil
 	}
 	return valid(nil), nil
@@ -442,19 +444,6 @@ func (api *ConsensusAPI) NewPayloadV1(params beacon.ExecutableDataV1) (beacon.Pa
 	}
 	hash := block.Hash()
 	return beacon.PayloadStatusV1{Status: beacon.VALID, LatestValidHash: &hash}, nil
-}
-
-// computePayloadId computes a pseudo-random payloadid, based on the parameters.
-func computePayloadId(headBlockHash common.Hash, params *beacon.PayloadAttributesV1) beacon.PayloadID {
-	// Hash
-	hasher := sha256.New()
-	hasher.Write(headBlockHash[:])
-	binary.Write(hasher, binary.BigEndian, params.Timestamp)
-	hasher.Write(params.Random[:])
-	hasher.Write(params.SuggestedFeeRecipient[:])
-	var out beacon.PayloadID
-	copy(out[:], hasher.Sum(nil)[:8])
-	return out
 }
 
 // delayPayloadImport stashes the given block away for import at a later time,
